@@ -56,6 +56,7 @@
             <div class="inline-flex rounded-lg border border-white/10 bg-white/5 p-1">
               <button id="tabString" class="px-3 py-2 rounded-md text-sm font-semibold text-white bg-emerald-500/20">String</button>
               <button id="tabPassphrase" class="px-3 py-2 rounded-md text-sm text-gray-300">Passphrase</button>
+              <button id="tabAnalyze" class="px-3 py-2 rounded-md text-sm text-gray-300">Check Strength</button>
             </div>
           </div>
           <div id="stringOptions" class="space-y-4 pt-2 border-t border-white/10">
@@ -111,6 +112,11 @@
                 <span class="text-sm text-gray-200">Add Symbols</span>
               </label>
             </div>
+          </div>
+          <div id="analysisPanel" class="space-y-3 pt-2 border-t border-white/10 hidden">
+            <div class="text-sm text-gray-200">Detailed Analysis</div>
+            <div id="analysisWarnings" class="text-xs text-yellow-300"></div>
+            <ul id="analysisSuggestions" class="text-xs text-gray-300 list-disc list-inside space-y-1"></ul>
           </div>
           <button id="generateBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-lg shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">Generate</button>
         </div>
