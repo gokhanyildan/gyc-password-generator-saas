@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chkUppercase = getElement('chkUppercase');
     const chkNumbers = getElement('chkNumbers');
     const chkSymbols = getElement('chkSymbols');
+    const chkAvoidAmbiguous = getElement('chkAvoidAmbiguous');
     const separatorInput = getElement('separatorInput');
     const chkCapitalize = getElement('chkCapitalize');
     const chkPassNumbers = getElement('chkPassNumbers');
@@ -35,6 +36,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyTooltip = getElement('copyTooltip');
     const strengthBar = getElement('strengthBar');
     const strengthText = getElement('strengthText');
+    const visibilityToggle = getElement('visibilityToggle');
+    const eyeIcon = getElement('eyeIcon');
+    const eyeOffIcon = getElement('eyeOffIcon');
 
     // Early exit if critical elements are missing
     if (!tabString || !tabPassphrase || !tabAnalyze || !stringOptions || 
@@ -45,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let activeMode = 'string';
     let wordlist = null;
+    let isPasswordVisible = true;
 
     // Fallback wordlist for immediate generation
     const fallbackWordlist = ['alpha','bravo','charlie','delta','echo','foxtrot','golf','hotel','india','juliet','kilo','lima','mike','november','oscar','papa','quebec','romeo','sierra','tango','uniform','victor','whiskey','xray','yankee','zulu','cloud','river','stone','light','shadow','ember','crystal','silver','gold','iron','copper','wolf','eagle','tiger','lion','bear','leaf','oak','pine','maple','jade','onyx','pearl','amber','storm','wind','rain','snow','fire','earth','sky'];
@@ -81,7 +86,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (chkNumbers.checked) valid += sets.nums;
         if (chkSymbols.checked) valid += sets.syms;
         
-        if (!valid) valid = sets.lower;
+        // Remove ambiguous characters if checkbox is checked
+        if (chkAvoidAmbiguous && chkAvoidAmbiguous.checked) {
+            const ambiguousChars = 'Il1O0';
+            valid = valid.split('').filter(char => !ambiguousChars.includes(char)).join('');
+        }
+        
+        // Ensure we have at least some characters to choose from
+        if (!valid) {
+            // Fallback: if all options would result in empty, use lowercase without ambiguous
+            if (chkAvoidAmbiguous && chkAvoidAmbiguous.checked) {
+                valid = 'abcdefghjkmnpqrstuvwxyz';
+            } else {
+                valid = sets.lower;
+            }
+        }
         
         let out = '';
         for (let i = 0; i < length; i++) {
@@ -105,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const count = parseInt(wordsCountRange.value, 10) || 4;
-        const sep = separatorInput.value || '';
+        const sep = separatorInput.value || '-';
         const addNum = chkPassNumbers.checked;
         const addSym = chkPassSymbols.checked;
         const cap = chkCapitalize.checked;
@@ -141,11 +160,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Calculate entropy in bits
+    function calculateEntropy(value) {
+        if (!value || value.length === 0) return 0;
+        
+        // For string passwords: entropy = length * log2(character_set_size)
+        if (activeMode === 'string') {
+            let charsetSize = 0;
+            const sets = {
+                lower: /[a-z]/.test(value) ? 26 : 0,
+                upper: /[A-Z]/.test(value) ? 26 : 0,
+                nums: /[0-9]/.test(value) ? 10 : 0,
+                syms: /[^A-Za-z0-9]/.test(value) ? 33 : 0 // Approximate symbol count
+            };
+            charsetSize = sets.lower + sets.upper + sets.nums + sets.syms;
+            if (charsetSize === 0) charsetSize = 26; // Fallback to lowercase only
+            return Math.round(value.length * Math.log2(charsetSize));
+        }
+        
+        // For passphrases: entropy = word_count * log2(wordlist_size)
+        // Estimate based on word count (assuming ~2000 word wordlist)
+        if (activeMode === 'passphrase') {
+            const words = value.split(/[^a-zA-Z]+/).filter(w => w.length >= 3);
+            const wordlistSize = wordlist && wordlist.length > 0 ? wordlist.length : fallbackWordlist.length;
+            const baseEntropy = words.length * Math.log2(wordlistSize);
+            
+            // Add entropy for numbers and symbols if present
+            let extraEntropy = 0;
+            if (/[0-9]/.test(value)) extraEntropy += Math.log2(10000); // 4-digit number
+            if (/[^A-Za-z0-9]/.test(value)) extraEntropy += Math.log2(8); // Symbol from set of 8
+            
+            return Math.round(baseEntropy + extraEntropy);
+        }
+        
+        // For analyze mode: estimate based on character diversity
+        const len = value.length;
+        const charsetSize = new Set(value.split('')).size;
+        return Math.round(len * Math.log2(Math.max(charsetSize, 26)));
+    }
+
     function updateStrength(value) {
         if (!strengthBar || !strengthText) return;
 
         let score = 0;
         let label = 'None';
+        const entropy = calculateEntropy(value);
         
         if (typeof zxcvbn === 'function') {
             try {
@@ -186,7 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         strengthBar.style.width = width;
-        strengthText.textContent = label;
+        // Display entropy next to strength rating
+        strengthText.textContent = value ? `${label} (${entropy} bits)` : label;
     }
 
     function updateAnalysisResult(res) {
@@ -332,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const count = parseInt(wordsCountRange.value, 10) || 4;
-        const sep = separatorInput ? (separatorInput.value || '') : '';
+        const sep = separatorInput ? (separatorInput.value || '-') : '-';
         const addNum = chkPassNumbers.checked;
         const addSym = chkPassSymbols.checked;
         const cap = chkCapitalize.checked;
@@ -406,13 +466,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Password visibility toggle
+    if (visibilityToggle && passwordOutput && eyeIcon && eyeOffIcon) {
+        visibilityToggle.addEventListener('click', () => {
+            isPasswordVisible = !isPasswordVisible;
+            
+            if (isPasswordVisible) {
+                passwordOutput.type = 'text';
+                eyeIcon.classList.remove('hidden');
+                eyeOffIcon.classList.add('hidden');
+            } else {
+                passwordOutput.type = 'password';
+                eyeIcon.classList.add('hidden');
+                eyeOffIcon.classList.remove('hidden');
+            }
+        });
+    }
+    
     if (copyBtn && passwordOutput && copyTooltip) {
         copyBtn.addEventListener('click', () => {
             if (!passwordOutput.value) return;
+            
             navigator.clipboard.writeText(passwordOutput.value).then(() => {
+                copyTooltip.textContent = 'Copied!';
                 copyTooltip.classList.remove('opacity-0');
                 setTimeout(() => {
-                    if (copyTooltip) copyTooltip.classList.add('opacity-0');
+                    if (copyTooltip) {
+                        copyTooltip.classList.add('opacity-0');
+                    }
                 }, 1500);
             }).catch(err => {
                 console.error('Failed to copy:', err);
@@ -430,8 +511,41 @@ document.addEventListener('DOMContentLoaded', () => {
         generateBtn.addEventListener('click', generate);
     }
 
+    // Hotkeys: Enter or Spacebar to generate (unless in analyze mode or typing in input)
+    document.addEventListener('keydown', (e) => {
+        // Don't trigger if user is typing in the password input (analyze mode)
+        if (document.activeElement === passwordOutput && activeMode === 'analyze') {
+            return;
+        }
+        
+        // Don't trigger if user is typing in separator input
+        if (document.activeElement === separatorInput) {
+            return;
+        }
+        
+        // Generate on Enter or Spacebar
+        if (e.key === 'Enter' || e.key === ' ') {
+            // Prevent default behavior (form submission, page scroll)
+            e.preventDefault();
+            
+            // Only generate if not in analyze mode
+            if (activeMode !== 'analyze' && generateBtn) {
+                generate();
+            }
+        }
+    });
+
     // Initialize: Set mode but don't auto-generate - wait for user to click Generate
     setMode('string');
+    
+    // Initialize password visibility state
+    if (passwordOutput && eyeIcon && eyeOffIcon) {
+        passwordOutput.type = isPasswordVisible ? 'text' : 'password';
+        if (!isPasswordVisible) {
+            eyeIcon.classList.add('hidden');
+            eyeOffIcon.classList.remove('hidden');
+        }
+    }
     
     // Clear password output on startup
     if (passwordOutput) {
