@@ -22,8 +22,12 @@
       <div class="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl shadow-2xl overflow-hidden">
         <div class="p-6 border-b border-white/10">
           <div class="flex items-center justify-center gap-2 mb-3">
-            <span class="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-xs border border-emerald-500/30">SaaS</span>
-            <span class="px-3 py-1 rounded-full bg-blue-500/15 text-blue-300 text-xs border border-blue-500/30">Client-side</span>
+            <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/15 text-emerald-300 text-xs border border-emerald-500/30">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span>Local Logic • No Data Sent to Server</span>
+            </div>
           </div>
           <h1 class="text-3xl font-bold tracking-tight text-emerald-400 text-center">G-Guard</h1>
           <p class="mt-2 text-center text-sm text-gray-300">by <a href="https://gokhanyildan.com" target="_blank" rel="noopener noreferrer" class="underline decoration-emerald-500/50 hover:text-white">gokhanyildan.com</a></p>
@@ -54,12 +58,12 @@
           </div>
           <div class="flex items-center gap-2">
             <div class="inline-flex rounded-lg border border-white/10 bg-white/5 p-1">
-              <button id="tabString" class="px-3 py-2 rounded-md text-sm font-semibold text-white bg-emerald-500/20">String</button>
-              <button id="tabPassphrase" class="px-3 py-2 rounded-md text-sm text-gray-300">Passphrase</button>
-              <button id="tabAnalyze" class="px-3 py-2 rounded-md text-sm text-gray-300">Check Strength</button>
+              <button id="tabString" class="tab-button px-3 py-2 rounded-md text-sm font-semibold text-white bg-emerald-500/20" data-mode="string">String</button>
+              <button id="tabPassphrase" class="tab-button px-3 py-2 rounded-md text-sm text-gray-300" data-mode="passphrase">Passphrase</button>
+              <button id="tabAnalyze" class="tab-button px-3 py-2 rounded-md text-sm text-gray-300" data-mode="analyze">Check Strength</button>
             </div>
           </div>
-          <div id="stringOptions" class="space-y-4 pt-2 border-t border-white/10">
+          <div id="stringOptions" class="options-panel space-y-4 pt-2 border-t border-white/10">
             <div>
               <div class="flex justify-between text-sm mb-2">
                 <label class="text-gray-200">Length</label>
@@ -86,7 +90,7 @@
               </label>
             </div>
           </div>
-          <div id="passphraseOptions" class="space-y-4 pt-2 border-t border-white/10 hidden">
+          <div id="passphraseOptions" class="options-panel space-y-4 pt-2 border-t border-white/10 hidden">
             <div>
               <div class="flex justify-between text-sm mb-2">
                 <label class="text-gray-200">Words</label>
@@ -113,7 +117,7 @@
               </label>
             </div>
           </div>
-          <div id="analysisPanel" class="space-y-3 pt-2 border-t border-white/10 hidden">
+          <div id="analysisPanel" class="options-panel space-y-3 pt-2 border-t border-white/10 hidden">
             <div class="text-sm text-gray-200">Detailed Analysis</div>
             <div id="analysisWarnings" class="text-xs text-yellow-300"></div>
             <ul id="analysisSuggestions" class="text-xs text-gray-300 list-disc list-inside space-y-1"></ul>
