@@ -49,76 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fallback wordlist for immediate generation
     const fallbackWordlist = ['alpha','bravo','charlie','delta','echo','foxtrot','golf','hotel','india','juliet','kilo','lima','mike','november','oscar','papa','quebec','romeo','sierra','tango','uniform','victor','whiskey','xray','yankee','zulu','cloud','river','stone','light','shadow','ember','crystal','silver','gold','iron','copper','wolf','eagle','tiger','lion','bear','leaf','oak','pine','maple','jade','onyx','pearl','amber','storm','wind','rain','snow','fire','earth','sky'];
 
-    // Safe tab state management
-    function setMode(mode) {
-        if (!mode || (mode !== 'string' && mode !== 'passphrase' && mode !== 'analyze')) {
-            console.error('Invalid mode:', mode);
-            return;
-        }
-
-        activeMode = mode;
-
-        // Reset all tabs to inactive state
-        const allTabs = [tabString, tabPassphrase, tabAnalyze];
-        allTabs.forEach(tab => {
-            if (tab) {
-                tab.classList.remove('text-white', 'font-semibold', 'bg-emerald-500/20');
-                tab.classList.add('text-gray-300');
-            }
-        });
-
-        // Set active tab
-        let activeTab = null;
-        if (mode === 'string' && tabString) {
-            activeTab = tabString;
-        } else if (mode === 'passphrase' && tabPassphrase) {
-            activeTab = tabPassphrase;
-        } else if (mode === 'analyze' && tabAnalyze) {
-            activeTab = tabAnalyze;
-        }
-
-        if (activeTab) {
-            activeTab.classList.remove('text-gray-300');
-            activeTab.classList.add('text-white', 'font-semibold', 'bg-emerald-500/20');
-        }
-
-        // Show/hide option panels
-        if (stringOptions) {
-            stringOptions.classList.toggle('hidden', mode !== 'string');
-        }
-        if (passphraseOptions) {
-            passphraseOptions.classList.toggle('hidden', mode !== 'passphrase');
-        }
-        if (analysisPanel) {
-            analysisPanel.classList.toggle('hidden', mode !== 'analyze');
-        }
-        if (generateBtn) {
-            generateBtn.classList.toggle('hidden', mode === 'analyze');
-        }
-
-        // Update password input - FIXED: readonly logic reversed
-        if (passwordOutput) {
-            if (mode === 'analyze') {
-                // In analyze mode: remove readonly, clear value, focus input
-                passwordOutput.removeAttribute('readonly');
-                passwordOutput.readOnly = false;
-                passwordOutput.value = '';
-                passwordOutput.placeholder = 'Type a password to analyze...';
-                // Focus the input after a brief delay to ensure DOM is ready
-                setTimeout(() => {
-                    if (passwordOutput) {
-                        passwordOutput.focus();
-                    }
-                }, 10);
-                updateAnalysis('');
-            } else {
-                // In string/passphrase mode: set readonly to prevent editing
-                passwordOutput.readOnly = true;
-                passwordOutput.placeholder = 'Generate or Type to test...';
-            }
-        }
-    }
-
     function secureRandomInt(max) {
         if (max <= 0) return 0;
         const arr = new Uint32Array(1);
@@ -129,6 +59,86 @@ document.addEventListener('DOMContentLoaded', () => {
             x = arr[0];
         } while (x >= limit);
         return x % max;
+    }
+
+    function generateString() {
+        if (!lengthRange || !chkLowercase || !chkUppercase || !chkNumbers || !chkSymbols) {
+            console.error('Required elements for string generation missing');
+            return '';
+        }
+
+        const length = parseInt(lengthRange.value, 10) || 12;
+        let valid = '';
+        const sets = {
+            lower: 'abcdefghijklmnopqrstuvwxyz',
+            upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+            nums: '0123456789',
+            syms: '!@#$%^&*()_+~`|}{[]:;?><,./-='
+        };
+        
+        if (chkLowercase.checked) valid += sets.lower;
+        if (chkUppercase.checked) valid += sets.upper;
+        if (chkNumbers.checked) valid += sets.nums;
+        if (chkSymbols.checked) valid += sets.syms;
+        
+        if (!valid) valid = sets.lower;
+        
+        let out = '';
+        for (let i = 0; i < length; i++) {
+            const idx = secureRandomInt(valid.length);
+            out += valid[idx];
+        }
+        return out;
+    }
+
+    // Synchronous passphrase generation using fallback wordlist
+    function generatePassphraseSync() {
+        if (!wordsCountRange || !separatorInput || !chkPassNumbers || !chkPassSymbols || !chkCapitalize) {
+            console.error('Required elements for passphrase generation missing');
+            return '';
+        }
+
+        const words = fallbackWordlist;
+        if (!words || words.length === 0) {
+            console.error('Wordlist is empty');
+            return '';
+        }
+
+        const count = parseInt(wordsCountRange.value, 10) || 4;
+        const sep = separatorInput.value || '';
+        const addNum = chkPassNumbers.checked;
+        const addSym = chkPassSymbols.checked;
+        const cap = chkCapitalize.checked;
+        const chosen = [];
+        
+        for (let i = 0; i < count; i++) {
+            let w = words[secureRandomInt(words.length)];
+            if (cap) w = w.charAt(0).toUpperCase() + w.slice(1);
+            chosen.push(w);
+        }
+        
+        let out = chosen.join(sep);
+        if (addNum) out += sep + String(secureRandomInt(10000));
+        if (addSym) {
+            const syms = '!@#$%^&*';
+            out += sep + syms[secureRandomInt(syms.length)];
+        }
+        return out;
+    }
+
+    // Immediate synchronous generation for startup - NO async, NO button state changes
+    function generateImmediate() {
+        if (!passwordOutput) return;
+        
+        // Generate immediately using sync functions - use fallback wordlist
+        const val = activeMode === 'string' 
+            ? generateString() 
+            : generatePassphraseSync();
+        
+        if (passwordOutput) {
+            passwordOutput.value = val || '';
+            updateStrength(val || '');
+        }
     }
 
     function updateStrength(value) {
@@ -214,69 +224,84 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function generateString() {
-        if (!lengthRange || !chkLowercase || !chkUppercase || !chkNumbers || !chkSymbols) {
-            console.error('Required elements for string generation missing');
-            return '';
+    // Safe tab state management
+    function setMode(mode) {
+        if (!mode || (mode !== 'string' && mode !== 'passphrase' && mode !== 'analyze')) {
+            console.error('Invalid mode:', mode);
+            return;
         }
 
-        const length = parseInt(lengthRange.value, 10) || 12;
-        let valid = '';
-        const sets = {
-            lower: 'abcdefghijklmnopqrstuvwxyz',
-            upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-            nums: '0123456789',
-            syms: '!@#$%^&*()_+~`|}{[]:;?><,./-='
-        };
-        
-        if (chkLowercase.checked) valid += sets.lower;
-        if (chkUppercase.checked) valid += sets.upper;
-        if (chkNumbers.checked) valid += sets.nums;
-        if (chkSymbols.checked) valid += sets.syms;
-        
-        if (!valid) valid = sets.lower;
-        
-        let out = '';
-        for (let i = 0; i < length; i++) {
-            const idx = secureRandomInt(valid.length);
-            out += valid[idx];
-        }
-        return out;
-    }
+        activeMode = mode;
 
-    // Synchronous passphrase generation using fallback wordlist
-    function generatePassphraseSync() {
-        if (!wordsCountRange || !separatorInput || !chkPassNumbers || !chkPassSymbols || !chkCapitalize) {
-            console.error('Required elements for passphrase generation missing');
-            return '';
+        // Reset all tabs to inactive state
+        const allTabs = [tabString, tabPassphrase, tabAnalyze];
+        allTabs.forEach(tab => {
+            if (tab) {
+                tab.classList.remove('text-white', 'font-semibold', 'bg-emerald-500/20');
+                tab.classList.add('text-gray-300');
+            }
+        });
+
+        // Set active tab
+        let activeTab = null;
+        if (mode === 'string' && tabString) {
+            activeTab = tabString;
+        } else if (mode === 'passphrase' && tabPassphrase) {
+            activeTab = tabPassphrase;
+        } else if (mode === 'analyze' && tabAnalyze) {
+            activeTab = tabAnalyze;
         }
 
-        const words = fallbackWordlist;
-        if (!words || words.length === 0) {
-            console.error('Wordlist is empty');
-            return '';
+        if (activeTab) {
+            activeTab.classList.remove('text-gray-300');
+            activeTab.classList.add('text-white', 'font-semibold', 'bg-emerald-500/20');
         }
 
-        const count = parseInt(wordsCountRange.value, 10) || 4;
-        const sep = separatorInput.value || '-';
-        const addNum = chkPassNumbers.checked;
-        const addSym = chkPassSymbols.checked;
-        const cap = chkCapitalize.checked;
-        const chosen = [];
-        
-        for (let i = 0; i < count; i++) {
-            let w = words[secureRandomInt(words.length)];
-            if (cap) w = w.charAt(0).toUpperCase() + w.slice(1);
-            chosen.push(w);
+        // Show/hide option panels
+        if (stringOptions) {
+            stringOptions.classList.toggle('hidden', mode !== 'string');
         }
-        
-        let out = chosen.join(sep);
-        if (addNum) out += sep + String(secureRandomInt(10000));
-        if (addSym) {
-            const syms = '!@#$%^&*';
-            out += sep + syms[secureRandomInt(syms.length)];
+        if (passphraseOptions) {
+            passphraseOptions.classList.toggle('hidden', mode !== 'passphrase');
         }
-        return out;
+        if (analysisPanel) {
+            analysisPanel.classList.toggle('hidden', mode !== 'analyze');
+        }
+        if (generateBtn) {
+            generateBtn.classList.toggle('hidden', mode === 'analyze');
+        }
+
+        // CRITICAL: Update password input readonly state
+        if (passwordOutput) {
+            if (mode === 'analyze') {
+                // In analyze mode: MUST be editable - remove ALL readonly restrictions
+                passwordOutput.removeAttribute('readonly');
+                passwordOutput.removeAttribute('readOnly');
+                passwordOutput.readOnly = false;
+                passwordOutput.disabled = false;
+                passwordOutput.value = '';
+                passwordOutput.placeholder = 'Type a password to analyze...';
+                // Clear strength meter when switching to analyze mode
+                if (strengthBar && strengthText) {
+                    strengthBar.style.width = '0%';
+                    strengthText.textContent = 'None';
+                }
+                // Force focus and ensure it's interactive
+                requestAnimationFrame(() => {
+                    if (passwordOutput) {
+                        passwordOutput.focus();
+                        // Double-check readonly is removed
+                        passwordOutput.readOnly = false;
+                        passwordOutput.removeAttribute('readonly');
+                    }
+                });
+                updateAnalysis('');
+            } else {
+                // In string/passphrase mode: set readonly to prevent editing generated passwords
+                passwordOutput.readOnly = true;
+                passwordOutput.placeholder = 'Generate or Type to test...';
+            }
+        }
     }
 
     async function ensureWordlist() {
@@ -307,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const count = parseInt(wordsCountRange.value, 10) || 4;
-        const sep = separatorInput.value || '-';
+        const sep = separatorInput ? (separatorInput.value || '') : '';
         const addNum = chkPassNumbers.checked;
         const addSym = chkPassSymbols.checked;
         const cap = chkCapitalize.checked;
@@ -326,21 +351,6 @@ document.addEventListener('DOMContentLoaded', () => {
             out += sep + syms[secureRandomInt(syms.length)];
         }
         return out;
-    }
-
-    // Immediate synchronous generation for startup
-    function generateImmediate() {
-        if (!passwordOutput) return;
-        
-        // Generate immediately using sync functions
-        const val = activeMode === 'string' 
-            ? generateString() 
-            : generatePassphraseSync();
-        
-        if (passwordOutput) {
-            passwordOutput.value = val || '';
-            updateStrength(val || '');
-        }
     }
 
     async function generate() {
@@ -420,11 +430,16 @@ document.addEventListener('DOMContentLoaded', () => {
         generateBtn.addEventListener('click', generate);
     }
 
-    // Initialize: Set mode and generate immediately (synchronously)
+    // Initialize: Set mode but don't auto-generate - wait for user to click Generate
     setMode('string');
-    generateImmediate();
     
-    // Pre-fetch wordlist in background for future use
+    // Clear password output on startup
+    if (passwordOutput) {
+        passwordOutput.value = '';
+        updateStrength('');
+    }
+    
+    // Pre-fetch wordlist in background for future use (non-blocking)
     ensureWordlist().catch(err => {
         console.warn('Background wordlist fetch failed, will use fallback:', err);
     });
