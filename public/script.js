@@ -92,14 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
             valid = valid.split('').filter(char => !ambiguousChars.includes(char)).join('');
         }
         
-        // Ensure we have at least some characters to choose from
-        if (!valid) {
-            // Fallback: if all options would result in empty, use lowercase without ambiguous
-            if (chkAvoidAmbiguous && chkAvoidAmbiguous.checked) {
-                valid = 'abcdefghjkmnpqrstuvwxyz';
-            } else {
-                valid = sets.lower;
-            }
+        // BUG FIX: If no characters are selected, return null instead of forcing a fallback
+        if (!valid || valid.length === 0) {
+            return null; 
         }
         
         let out = '';
@@ -149,12 +144,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function generateImmediate() {
         if (!passwordOutput) return;
         
-        // Generate immediately using sync functions - use fallback wordlist
         const val = activeMode === 'string' 
             ? generateString() 
             : generatePassphraseSync();
-        
-        if (passwordOutput) {
+            
+        // If val is null (invalid config), just clear output, don't show angry red errors on startup
+        if (val === null) {
+            passwordOutput.value = '';
+            updateStrength('');
+        } else {
             passwordOutput.value = val || '';
             updateStrength(val || '');
         }
@@ -367,7 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function ensureWordlist() {
         if (wordlist && wordlist.length > 0) return wordlist;
         try {
-            const res = await fetch('https://raw.githubusercontent.com/first20hours/google-10000-english/master/20k.txt');
+           const res = await fetch('./wordlist.txt');
             if (!res.ok) throw new Error('Failed to fetch wordlist');
             const txt = await res.text();
             wordlist = txt.split('\n').map(w => w.trim()).filter(w => w.length >= 3 && /^[a-z]+$/.test(w));
@@ -415,19 +413,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function generate() {
         if (activeMode === 'analyze' || !generateBtn || !passwordOutput) return;
-        
-        const original = generateBtn.textContent;
+
+        const originalText = generateBtn.textContent;
         generateBtn.textContent = 'Generating...';
         generateBtn.disabled = true;
-        
+
         try {
+            // Clear previous error styles
+            passwordOutput.classList.remove('border-red-500', 'text-red-500', 'placeholder-red-500');
+            passwordOutput.classList.add('text-emerald-400'); // Restore default color
+
             const val = activeMode === 'string' 
                 ? generateString() 
                 : await generatePassphrase();
-            
-            if (passwordOutput) {
-                passwordOutput.value = val || '';
-                updateStrength(val || '');
+
+            // BUG FIX: Handle empty selection error
+            if (val === null) {
+                passwordOutput.value = ''; // Clear value
+                passwordOutput.placeholder = 'Please select at least one option!';
+                
+                // Add error styling (Red border and text)
+                passwordOutput.classList.remove('text-emerald-400');
+                passwordOutput.classList.add('border-red-500', 'placeholder-red-500');
+                
+                // Shake animation (optional visual feedback)
+                passwordOutput.animate([
+                    { transform: 'translateX(0)' },
+                    { transform: 'translateX(-5px)' },
+                    { transform: 'translateX(5px)' },
+                    { transform: 'translateX(0)' }
+                ], { duration: 200, iterations: 2 });
+                
+                updateStrength(''); // Clear strength bar
+            } else {
+                // Success path
+                if (passwordOutput) {
+                    passwordOutput.value = val || '';
+                    updateStrength(val || '');
+                }
             }
         } catch (err) {
             console.error('Error generating password:', err);
@@ -437,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } finally {
             if (generateBtn) {
-                generateBtn.textContent = original;
+                generateBtn.textContent = originalText;
                 generateBtn.disabled = false;
             }
         }
